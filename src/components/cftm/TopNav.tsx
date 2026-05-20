@@ -18,6 +18,9 @@ interface Props {
   exporting?: boolean;
   user: User | null;
   saveState: SaveState;
+  demoMode?: boolean;
+  onToggleDemo?: () => void;
+  saveReminder?: boolean;
 }
 
 export function TopNav({
