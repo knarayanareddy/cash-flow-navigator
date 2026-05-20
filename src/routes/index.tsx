@@ -191,6 +191,72 @@ function Index() {
     toast.success("Scenario loaded", { description: s.name });
   };
 
+  // ---- Export PDF ----
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    setPdfData({
+      scenarioName: scenarioName || "Untitled Scenario",
+      company: (user?.user_metadata as any)?.company || (user?.email ?? "Your Company"),
+      levers,
+      data,
+      mc,
+      narrative: narrativeResult,
+      stakeholders: stakeholderResult,
+    });
+    // wait for the off-screen template to render
+    await new Promise((r) => setTimeout(r, 250));
+    try {
+      if (!pdfRootRef.current) throw new Error("PDF template not ready");
+      await exportReportToPdf(pdfRootRef.current, buildFilename(scenarioName));
+      toast.success("✅ Report downloaded!");
+    } catch (e: any) {
+      console.error(e);
+      toast.error("Export failed", { description: e?.message ?? "Try again" });
+    } finally {
+      setExporting(false);
+      setTimeout(() => setPdfData(null), 500);
+    }
+  }, [scenarioName, user, levers, data, mc, narrativeResult, stakeholderResult]);
+
+  // ---- Comparison ----
+  const toggleCompare = useCallback(() => {
+    setComparing((c) => {
+      const next = !c;
+      if (next) setLeversB(levers); // start B from current A
+      return next;
+    });
+  }, [levers]);
+
+  const saveComparison = useCallback(async () => {
+    if (!user) {
+      setPendingSaveAfterAuth(true);
+      setAuthOpen(true);
+      return;
+    }
+    try {
+      const tag = `compare-${Date.now()}`;
+      const baseName = scenarioName.trim() || "Scenario";
+      const a = await upsertScenario(user.id, {
+        name: `${baseName} (A)`,
+        levers,
+        baseData: BASE_DATA,
+        result: data,
+      });
+      const b = await upsertScenario(user.id, {
+        name: `${baseName} (B)`,
+        levers: leversB,
+        baseData: BASE_DATA,
+        result: calculateCashFlow(BASE_DATA, leversB),
+      });
+      // tag both via update
+      await supabase.from("scenarios").update({ tags: [tag, "A"] }).eq("id", a.id);
+      await supabase.from("scenarios").update({ tags: [tag, "B"] }).eq("id", b.id);
+      toast.success("Comparison saved", { description: `Linked pair: ${baseName}` });
+    } catch (e: any) {
+      toast.error("Save failed", { description: e?.message });
+    }
+  }, [user, scenarioName, levers, leversB, data]);
+
   return (
     <div className="dark min-h-screen bg-background text-foreground">
       <Toaster theme="dark" position="top-right" />
@@ -198,8 +264,11 @@ function Index() {
         scenarioName={scenarioName}
         onScenarioNameChange={setScenarioName}
         onSave={save}
-        onExport={() => toast("PDF export queued", { description: "Generating boardroom-ready report…" })}
+        onExport={handleExport}
         onOpenScenarios={() => setDrawerOpen(true)}
+        onToggleCompare={toggleCompare}
+        comparing={comparing}
+        exporting={exporting}
         user={user}
         saveState={saveState}
       />
@@ -233,22 +302,59 @@ function Index() {
             </div>
           </motion.div>
         )}
+        {exporting && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm"
+          >
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-white/10 bg-card/80 px-8 py-6 shadow-2xl">
+              <Loader2 className="h-7 w-7 animate-spin text-primary" />
+              <p className="text-sm font-medium">📄 Preparing your board report…</p>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <main className="mx-auto max-w-[1400px] px-6 pb-16 pt-24">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-1">
-            <div className="lg:sticky lg:top-24">
-              <ScenarioControls levers={levers} onChange={setLevers} />
+        {comparing ? (
+          <ComparisonView
+            scenarioA={levers}
+            scenarioB={leversB}
+            onChangeB={setLeversB}
+            onExit={() => setComparing(false)}
+            onSaveComparison={saveComparison}
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <div className="lg:sticky lg:top-24">
+                <ScenarioControls levers={levers} onChange={setLevers} />
+              </div>
+            </div>
+            <div className="space-y-6 lg:col-span-2">
+              <CashFlowChart data={data} mc={mc} mcRunning={mcRunning} />
+              <CFONarrative
+                scenarioName={scenarioName}
+                levers={levers}
+                data={data}
+                mc={mc}
+                onResult={setNarrativeResult}
+              />
+              <StakeholderPanel
+                scenarioName={scenarioName}
+                levers={levers}
+                data={data}
+                mc={mc}
+                onResult={setStakeholderResult}
+              />
             </div>
           </div>
-          <div className="space-y-6 lg:col-span-2">
-            <CashFlowChart data={data} mc={mc} mcRunning={mcRunning} />
-            <CFONarrative scenarioName={scenarioName} levers={levers} data={data} mc={mc} />
-            <StakeholderPanel scenarioName={scenarioName} levers={levers} data={data} mc={mc} />
-          </div>
-        </div>
+        )}
       </main>
+
+      {pdfData && <PDFReport ref={pdfRootRef} report={pdfData} />}
 
       <StatusBar lastCalculatedAt={lastCalculatedAt} scenariosSaved={scenariosSaved} />
 
