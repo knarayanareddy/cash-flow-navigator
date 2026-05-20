@@ -318,6 +318,25 @@ const THINKING_PHRASES = [
   "Sandra is checking covenants…",
 ];
 
+const UNAVAILABLE_COPY: Record<NonNullable<StakeholderResult["unavailableReason"]>, { title: string; body: string }> = {
+  credits: {
+    title: "AI credits exhausted",
+    body: "The war room simulation is paused until credits are added in workspace settings. Forecasts and charts remain available.",
+  },
+  rate_limit: {
+    title: "War room is rate limited",
+    body: "Wait a moment, then reconvene the stakeholder room.",
+  },
+  configuration: {
+    title: "War room is not configured",
+    body: "The AI gateway needs configuration before stakeholder reactions can run.",
+  },
+  gateway: {
+    title: "War room is temporarily unavailable",
+    body: "Try reconvening shortly.",
+  },
+};
+
 function LoadingRoom() {
   const [phraseIdx, setPhraseIdx] = useState(0);
   const [pulseIdx, setPulseIdx] = useState(0);
@@ -422,9 +441,9 @@ export function StakeholderPanel({
               : undefined,
           },
         });
-        cacheRef.current.set(key, r);
+        if (!r.unavailableReason) cacheRef.current.set(key, r);
         setResult(r);
-        onResult?.(r);
+        if (!r.unavailableReason) onResult?.(r);
       } catch (e) {
         console.error(e);
         setError("War room unavailable. Please check your connection.");
@@ -501,7 +520,22 @@ export function StakeholderPanel({
           </div>
         )}
 
-        {!loading && !error && result && (
+        {!loading && result?.unavailableReason && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center">
+            <AlertTriangle className="mx-auto mb-2 h-5 w-5 text-amber-300" />
+            <p className="text-sm font-semibold text-amber-100">
+              {UNAVAILABLE_COPY[result.unavailableReason].title}
+            </p>
+            <p className="mx-auto mt-1 max-w-xl text-xs leading-relaxed text-amber-100/80">
+              {UNAVAILABLE_COPY[result.unavailableReason].body}
+            </p>
+            <Button size="sm" variant="secondary" className="mt-3" onClick={() => run(true)}>
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {!loading && !error && result && !result.unavailableReason && (
           <>
             <motion.div
               layout
