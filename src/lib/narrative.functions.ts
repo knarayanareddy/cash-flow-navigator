@@ -36,6 +36,38 @@ export interface NarrativeResult {
   recommendations: string[];
   urgency: "low" | "medium" | "high" | "critical";
   cashRunwayMonths: number | null;
+  unavailableReason?: "credits" | "rate_limit" | "configuration" | "gateway";
+}
+
+function unavailableNarrative(reason: NonNullable<NarrativeResult["unavailableReason"]>): NarrativeResult {
+  const copy: Record<NonNullable<NarrativeResult["unavailableReason"]>, { headline: string; summary: string }> = {
+    credits: {
+      headline: "AI credits are exhausted",
+      summary: "The forecast is still available, but the AI CFO brief is paused until credits are added in workspace settings.",
+    },
+    rate_limit: {
+      headline: "AI analysis is rate limited",
+      summary: "The forecast is still available. Wait a moment, then regenerate the CFO brief.",
+    },
+    configuration: {
+      headline: "AI analysis is not configured",
+      summary: "The forecast is still available, but the AI gateway needs to be configured before briefs can run.",
+    },
+    gateway: {
+      headline: "AI analysis is temporarily unavailable",
+      summary: "The forecast is still available. Regenerate the brief once the AI service is reachable.",
+    },
+  };
+
+  return {
+    headline: copy[reason].headline,
+    summary: copy[reason].summary,
+    risks: [],
+    recommendations: [],
+    urgency: "medium",
+    cashRunwayMonths: null,
+    unavailableReason: reason,
+  };
 }
 
 const SYSTEM_PROMPT =
@@ -121,7 +153,7 @@ export const generateCfoBrief = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<NarrativeResult> => {
     const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("AI gateway not configured");
+    if (!apiKey) return unavailableNarrative("configuration");
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -140,19 +172,25 @@ export const generateCfoBrief = createServerFn({ method: "POST" })
       }),
     });
 
-    if (res.status === 429) throw new Error("Rate limited. Please try again shortly.");
-    if (res.status === 402) throw new Error("AI credits exhausted. Add credits in workspace settings.");
+    if (res.status === 429) return unavailableNarrative("rate_limit");
+    if (res.status === 402) return unavailableNarrative("credits");
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error("AI gateway error", res.status, text);
-      throw new Error("AI gateway request failed");
+      return unavailableNarrative("gateway");
     }
 
     const json: any = await res.json();
     const call = json?.choices?.[0]?.message?.tool_calls?.[0];
     const argsRaw = call?.function?.arguments;
-    if (!argsRaw) throw new Error("AI response missing tool call");
-    const parsed = typeof argsRaw === "string" ? JSON.parse(argsRaw) : argsRaw;
+    if (!argsRaw) return unavailableNarrative("gateway");
+    let parsed: any;
+    try {
+      parsed = typeof argsRaw === "string" ? JSON.parse(argsRaw) : argsRaw;
+    } catch (error) {
+      console.error("AI response parse error", error);
+      return unavailableNarrative("gateway");
+    }
 
     return {
       headline: String(parsed.headline ?? ""),
