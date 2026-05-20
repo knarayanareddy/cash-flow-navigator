@@ -424,6 +424,7 @@ export function StakeholderPanel({
         });
         cacheRef.current.set(key, r);
         setResult(r);
+        onResult?.(r);
       } catch (e) {
         console.error(e);
         setError("War room unavailable. Please check your connection.");
