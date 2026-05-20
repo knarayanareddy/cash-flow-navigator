@@ -38,6 +38,7 @@ interface Props {
   data: MonthData[];
   mc?: MonteCarloResult | null;
   narrative?: { headline?: string; summary?: string; urgency?: string } | null;
+  onResult?: (r: StakeholderResult) => void;
 }
 
 function computeKpis(data: MonthData[]) {
