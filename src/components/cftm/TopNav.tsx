@@ -109,6 +109,7 @@ export function TopNav({
             onClick={onToggleCompare}
             size="sm"
             variant={comparing ? "default" : "outline"}
+            title="Compare scenarios"
             className={`hidden gap-1.5 md:inline-flex ${
               comparing ? "" : "border-white/15 bg-transparent hover:bg-white/5"
             }`}
@@ -121,6 +122,7 @@ export function TopNav({
             disabled={exporting}
             size="sm"
             variant="outline"
+            title="Export PDF (⌘E)"
             className="hidden gap-1.5 border-white/15 bg-transparent hover:bg-white/5 md:inline-flex"
           >
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
