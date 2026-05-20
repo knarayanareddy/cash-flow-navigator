@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { MonthData } from "@/lib/mockData";
+import type { MonthData } from "@/lib/cashflow";
 
 interface Props {
   data: MonthData[];
