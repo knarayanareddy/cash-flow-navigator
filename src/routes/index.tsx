@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast, Toaster } from "sonner";
 import { TopNav, type SaveState } from "@/components/cftm/TopNav";
 import { ScenarioControls } from "@/components/cftm/ScenarioControls";
@@ -9,9 +9,9 @@ import { StakeholderPanel } from "@/components/cftm/StakeholderPanel";
 import { StatusBar } from "@/components/cftm/StatusBar";
 import { AuthModal } from "@/components/cftm/AuthModal";
 import { ScenariosDrawer } from "@/components/cftm/ScenariosDrawer";
-import { ComparisonView } from "@/components/cftm/ComparisonView";
-import { PDFReport, type PDFReportData } from "@/components/cftm/PDFReport";
-import { exportReportToPdf, buildFilename } from "@/lib/pdfExport";
+import { DemoModeBanner } from "@/components/cftm/DemoModeBanner";
+import { OfflineBanner } from "@/components/cftm/OfflineBanner";
+import { BuiltWithBadge } from "@/components/cftm/BuiltWithBadge";
 import {
   BASE_DATA,
   DEFAULT_LEVERS,
@@ -21,12 +21,24 @@ import {
 import { upsertScenario, type ScenarioRow } from "@/lib/scenarios";
 import { useAuth } from "@/hooks/useAuth";
 import { useMonteCarlo } from "@/hooks/useMonteCarlo";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useDemoMode } from "@/hooks/useDemoMode";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, X, Loader2 } from "lucide-react";
 import type { NarrativeResult } from "@/lib/narrative.functions";
 import type { StakeholderResult } from "@/lib/stakeholders.functions";
+
+// Lazy-load heavy/optional components
+const ComparisonView = lazy(() =>
+  import("@/components/cftm/ComparisonView").then((m) => ({ default: m.ComparisonView })),
+);
+const PDFReport = lazy(() =>
+  import("@/components/cftm/PDFReport").then((m) => ({ default: m.PDFReport })),
+);
+type PDFReportData = import("@/components/cftm/PDFReport").PDFReportData;
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -59,12 +71,51 @@ function Index() {
   const [pdfData, setPdfData] = useState<PDFReportData | null>(null);
   const pdfRootRef = useRef<HTMLDivElement>(null);
 
+  // Demo mode (guests only)
+  const [demoMode, setDemoMode] = useState(false);
+  const [saveReminder, setSaveReminder] = useState(false);
+
   const data = useMemo(() => calculateCashFlow(BASE_DATA, levers), [levers]);
   const { result: mc, running: mcRunning } = useMonteCarlo(BASE_DATA, levers, 1000);
+  const online = useOnlineStatus();
+
+  // Dynamic page title
+  useEffect(() => {
+    const name = scenarioName.trim() || "Untitled Scenario";
+    document.title = `Cash Flow Time Machine | ${name}`;
+  }, [scenarioName]);
 
   useEffect(() => {
     setLastCalculatedAt(Date.now());
   }, [levers]);
+
+  // Negative-cash toast (one per unique month)
+  const lastNegativeMonthRef = useRef<string | null>(null);
+  useEffect(() => {
+    const first = data.find((d) => d.cumulativeCash < 0);
+    const key = first?.month ?? null;
+    if (key && key !== lastNegativeMonthRef.current) {
+      lastNegativeMonthRef.current = key;
+      toast.warning(`⚠️ Cash goes negative in ${key}`);
+    } else if (!key) {
+      lastNegativeMonthRef.current = null;
+    }
+  }, [data]);
+
+  // Save-reminder pulse every 30s if dirty
+  useEffect(() => {
+    if (!user) return;
+    const id = setInterval(() => {
+      const dirty = JSON.stringify(levers) !== lastSavedLevers.current;
+      if (dirty) {
+        setSaveReminder(true);
+        setTimeout(() => setSaveReminder(false), 1800);
+      }
+    }, 30000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
 
   // ---- Save ----
   const save = useCallback(async () => {
@@ -207,6 +258,7 @@ function Index() {
     await new Promise((r) => setTimeout(r, 250));
     try {
       if (!pdfRootRef.current) throw new Error("PDF template not ready");
+      const { exportReportToPdf, buildFilename } = await import("@/lib/pdfExport");
       await exportReportToPdf(pdfRootRef.current, buildFilename(scenarioName));
       toast.success("✅ Report downloaded!");
     } catch (e: any) {
@@ -257,6 +309,33 @@ function Index() {
     }
   }, [user, scenarioName, levers, leversB, data]);
 
+  // ---- Demo mode auto-cycle (guests only) ----
+  useDemoMode({
+    enabled: demoMode && !user,
+    onScriptedLevers: (l) => setLevers(l),
+  });
+  const currentDemoLabel = demoMode ? scenarioName || "Auto-cycling…" : "";
+
+  // ---- Keyboard shortcuts ----
+  useKeyboardShortcuts({
+    onSave: () => { void save(); },
+    onReset: () => {
+      setLevers(DEFAULT_LEVERS);
+      toast.success("Levers reset to defaults");
+    },
+    onExport: () => { void handleExport(); },
+    onEscape: () => {
+      setDrawerOpen(false);
+      setAuthOpen(false);
+      setStaleBanner(false);
+    },
+  });
+
+  const allDefault = useMemo(
+    () => JSON.stringify(levers) === JSON.stringify(DEFAULT_LEVERS),
+    [levers],
+  );
+
   return (
     <div className="dark min-h-screen bg-background text-foreground">
       <Toaster theme="dark" position="top-right" />
@@ -271,12 +350,17 @@ function Index() {
         exporting={exporting}
         user={user}
         saveState={saveState}
+        demoMode={demoMode}
+        onToggleDemo={() => setDemoMode((d) => !d)}
+        saveReminder={saveReminder}
       />
 
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-grid opacity-60" />
         <div className="absolute -top-40 left-1/3 h-[480px] w-[480px] rounded-full bg-primary/20 blur-[120px]" />
         <div className="absolute top-1/2 -right-40 h-[420px] w-[420px] rounded-full bg-fuchsia-500/10 blur-[120px]" />
       </div>
+
 
       <AnimatePresence>
         {staleBanner && (
@@ -315,17 +399,27 @@ function Index() {
             </div>
           </motion.div>
         )}
+        {!online && <OfflineBanner key="offline" />}
+        {demoMode && !user && (
+          <DemoModeBanner
+            key="demo"
+            currentLabel={currentDemoLabel}
+            onTakeControl={() => setDemoMode(false)}
+          />
+        )}
       </AnimatePresence>
 
       <main className="mx-auto max-w-[1400px] px-6 pb-16 pt-24">
         {comparing ? (
-          <ComparisonView
-            scenarioA={levers}
-            scenarioB={leversB}
-            onChangeB={setLeversB}
-            onExit={() => setComparing(false)}
-            onSaveComparison={saveComparison}
-          />
+          <Suspense fallback={<div className="flex h-96 items-center justify-center text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+            <ComparisonView
+              scenarioA={levers}
+              scenarioB={leversB}
+              onChangeB={setLeversB}
+              onExit={() => setComparing(false)}
+              onSaveComparison={saveComparison}
+            />
+          </Suspense>
         ) : (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="lg:col-span-1">
@@ -334,7 +428,9 @@ function Index() {
               </div>
             </div>
             <div className="space-y-6 lg:col-span-2">
-              <CashFlowChart data={data} mc={mc} mcRunning={mcRunning} />
+              <div className={allDefault ? "rounded-2xl ring-1 ring-emerald-400/30 shadow-[0_0_60px_-20px_rgba(52,211,153,0.35)] transition-shadow" : ""}>
+                <CashFlowChart data={data} mc={mc} mcRunning={mcRunning} />
+              </div>
               <CFONarrative
                 scenarioName={scenarioName}
                 levers={levers}
@@ -354,9 +450,14 @@ function Index() {
         )}
       </main>
 
-      {pdfData && <PDFReport ref={pdfRootRef} report={pdfData} />}
+      {pdfData && (
+        <Suspense fallback={null}>
+          <PDFReport ref={pdfRootRef} report={pdfData} />
+        </Suspense>
+      )}
 
       <StatusBar lastCalculatedAt={lastCalculatedAt} scenariosSaved={scenariosSaved} />
+      <BuiltWithBadge />
 
       <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
       <ScenariosDrawer
@@ -368,3 +469,4 @@ function Index() {
     </div>
   );
 }
+

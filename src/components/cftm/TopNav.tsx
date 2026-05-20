@@ -18,7 +18,12 @@ interface Props {
   exporting?: boolean;
   user: User | null;
   saveState: SaveState;
+  demoMode?: boolean;
+  onToggleDemo?: () => void;
+  saveReminder?: boolean;
 }
+
+import { DemoModeToggle } from "./DemoModeBanner";
 
 export function TopNav({
   scenarioName,
@@ -31,6 +36,9 @@ export function TopNav({
   exporting = false,
   user,
   saveState,
+  demoMode = false,
+  onToggleDemo,
+  saveReminder = false,
 }: Props) {
   return (
     <motion.header
@@ -70,11 +78,15 @@ export function TopNav({
               Scenarios
             </Button>
           )}
+          {!user && onToggleDemo && (
+            <DemoModeToggle enabled={demoMode} onToggle={onToggleDemo} />
+          )}
           <Button
             onClick={onSave}
             size="sm"
             disabled={saveState === "saving"}
-            className="gap-1.5 min-w-[120px] justify-center"
+            title="Save (⌘S)"
+            className={`gap-1.5 min-w-[120px] justify-center ${saveReminder ? "animate-save-pulse" : ""}`}
           >
             {saveState === "saving" ? (
               <>
@@ -97,6 +109,7 @@ export function TopNav({
             onClick={onToggleCompare}
             size="sm"
             variant={comparing ? "default" : "outline"}
+            title="Compare scenarios"
             className={`hidden gap-1.5 md:inline-flex ${
               comparing ? "" : "border-white/15 bg-transparent hover:bg-white/5"
             }`}
@@ -109,6 +122,7 @@ export function TopNav({
             disabled={exporting}
             size="sm"
             variant="outline"
+            title="Export PDF (⌘E)"
             className="hidden gap-1.5 border-white/15 bg-transparent hover:bg-white/5 md:inline-flex"
           >
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}

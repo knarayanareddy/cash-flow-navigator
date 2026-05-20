@@ -136,4 +136,17 @@
   .glow-indigo {
     box-shadow: 0 0 0 1px oklch(1 0 0 / 6%), 0 20px 60px -20px oklch(0.60 0.21 277 / 35%);
   }
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, oklch(1 0 0 / 5%) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(1 0 0 / 5%) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
 }
+
+@keyframes save-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.72 0.18 145 / 0); }
+  50%      { box-shadow: 0 0 0 6px oklch(0.72 0.18 145 / 0.25); }
+}
+.animate-save-pulse { animation: save-pulse 1.6s ease-out 1; }
+
