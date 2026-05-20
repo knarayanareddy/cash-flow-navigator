@@ -14,7 +14,127 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          company: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          role: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          role?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string | null
+        }
+        Relationships: []
+      }
+      scenario_snapshots: {
+        Row: {
+          calculated_result: Json | null
+          created_at: string
+          end_year_cash: number | null
+          id: string
+          levers: Json
+          min_cash_month: string | null
+          scenario_id: string
+          snapshot_name: string | null
+        }
+        Insert: {
+          calculated_result?: Json | null
+          created_at?: string
+          end_year_cash?: number | null
+          id?: string
+          levers: Json
+          min_cash_month?: string | null
+          scenario_id: string
+          snapshot_name?: string | null
+        }
+        Update: {
+          calculated_result?: Json | null
+          created_at?: string
+          end_year_cash?: number | null
+          id?: string
+          levers?: Json
+          min_cash_month?: string | null
+          scenario_id?: string
+          snapshot_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenario_snapshots_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "scenarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scenarios: {
+        Row: {
+          base_data: Json | null
+          calculated_result: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          is_favorite: boolean
+          levers: Json
+          name: string
+          preset_type: string | null
+          tags: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_data?: Json | null
+          calculated_result?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_favorite?: boolean
+          levers: Json
+          name?: string
+          preset_type?: string | null
+          tags?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_data?: Json | null
+          calculated_result?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_favorite?: boolean
+          levers?: Json
+          name?: string
+          preset_type?: string | null
+          tags?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenarios_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
