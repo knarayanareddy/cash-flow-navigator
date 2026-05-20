@@ -1,6 +1,3 @@
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
-
 /**
  * Captures each child of a container as a separate landscape A4 page and
  * downloads the resulting PDF. Each page element should be sized 1123x794px.
@@ -9,6 +6,11 @@ export async function exportReportToPdf(
   pagesContainer: HTMLElement,
   filename: string,
 ) {
+  const [{ jsPDF }, html2canvasMod] = await Promise.all([
+    import("jspdf"),
+    import("html2canvas"),
+  ]);
+  const html2canvas = html2canvasMod.default;
   const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
