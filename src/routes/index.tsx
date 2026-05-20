@@ -46,6 +46,19 @@ function Index() {
   const [pendingSaveAfterAuth, setPendingSaveAfterAuth] = useState(false);
   const [staleBanner, setStaleBanner] = useState(false);
 
+  // Comparison mode
+  const [comparing, setComparing] = useState(false);
+  const [leversB, setLeversB] = useState<Levers>(DEFAULT_LEVERS);
+
+  // Captured AI results for PDF
+  const [narrativeResult, setNarrativeResult] = useState<NarrativeResult | null>(null);
+  const [stakeholderResult, setStakeholderResult] = useState<StakeholderResult | null>(null);
+
+  // PDF export
+  const [exporting, setExporting] = useState(false);
+  const [pdfData, setPdfData] = useState<PDFReportData | null>(null);
+  const pdfRootRef = useRef<HTMLDivElement>(null);
+
   const data = useMemo(() => calculateCashFlow(BASE_DATA, levers), [levers]);
   const { result: mc, running: mcRunning } = useMonteCarlo(BASE_DATA, levers, 1000);
 
