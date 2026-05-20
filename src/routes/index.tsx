@@ -71,12 +71,51 @@ function Index() {
   const [pdfData, setPdfData] = useState<PDFReportData | null>(null);
   const pdfRootRef = useRef<HTMLDivElement>(null);
 
+  // Demo mode (guests only)
+  const [demoMode, setDemoMode] = useState(false);
+  const [saveReminder, setSaveReminder] = useState(false);
+
   const data = useMemo(() => calculateCashFlow(BASE_DATA, levers), [levers]);
   const { result: mc, running: mcRunning } = useMonteCarlo(BASE_DATA, levers, 1000);
+  const online = useOnlineStatus();
+
+  // Dynamic page title
+  useEffect(() => {
+    const name = scenarioName.trim() || "Untitled Scenario";
+    document.title = `Cash Flow Time Machine | ${name}`;
+  }, [scenarioName]);
 
   useEffect(() => {
     setLastCalculatedAt(Date.now());
   }, [levers]);
+
+  // Negative-cash toast (one per unique month)
+  const lastNegativeMonthRef = useRef<string | null>(null);
+  useEffect(() => {
+    const first = data.find((d) => d.cumulativeCash < 0);
+    const key = first?.month ?? null;
+    if (key && key !== lastNegativeMonthRef.current) {
+      lastNegativeMonthRef.current = key;
+      toast.warning(`⚠️ Cash goes negative in ${key}`);
+    } else if (!key) {
+      lastNegativeMonthRef.current = null;
+    }
+  }, [data]);
+
+  // Save-reminder pulse every 30s if dirty
+  useEffect(() => {
+    if (!user) return;
+    const id = setInterval(() => {
+      const dirty = JSON.stringify(levers) !== lastSavedLevers.current;
+      if (dirty) {
+        setSaveReminder(true);
+        setTimeout(() => setSaveReminder(false), 1800);
+      }
+    }, 30000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
 
   // ---- Save ----
   const save = useCallback(async () => {
