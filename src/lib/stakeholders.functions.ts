@@ -94,6 +94,27 @@ export interface StakeholderResult {
     conflicts: string[];
     recommendation: string;
   };
+  unavailableReason?: "credits" | "rate_limit" | "configuration" | "gateway";
+}
+
+function unavailableStakeholders(reason: NonNullable<StakeholderResult["unavailableReason"]>): StakeholderResult {
+  const recommendation: Record<NonNullable<StakeholderResult["unavailableReason"]>, string> = {
+    credits: "Stakeholder simulation is paused until AI credits are added in workspace settings.",
+    rate_limit: "Stakeholder simulation is rate limited. Wait a moment, then reconvene the room.",
+    configuration: "Stakeholder simulation needs the AI gateway configured before it can run.",
+    gateway: "Stakeholder simulation is temporarily unavailable. Try reconvening shortly.",
+  };
+
+  return {
+    reactions: [],
+    consensus: {
+      averageSentiment: 0,
+      agreements: [],
+      conflicts: [],
+      recommendation: recommendation[reason],
+    },
+    unavailableReason: reason,
+  };
 }
 
 const TOOL = {
@@ -217,7 +238,7 @@ export const simulateStakeholders = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<StakeholderResult> => {
     const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("AI gateway not configured");
+    if (!apiKey) return unavailableStakeholders("configuration");
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -240,19 +261,25 @@ export const simulateStakeholders = createServerFn({ method: "POST" })
       }),
     });
 
-    if (res.status === 429) throw new Error("Rate limited. Please try again shortly.");
-    if (res.status === 402) throw new Error("AI credits exhausted.");
+    if (res.status === 429) return unavailableStakeholders("rate_limit");
+    if (res.status === 402) return unavailableStakeholders("credits");
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error("AI gateway error", res.status, text);
-      throw new Error("AI gateway request failed");
+      return unavailableStakeholders("gateway");
     }
 
     const json: any = await res.json();
     const call = json?.choices?.[0]?.message?.tool_calls?.[0];
     const argsRaw = call?.function?.arguments;
-    if (!argsRaw) throw new Error("AI response missing tool call");
-    const parsed = typeof argsRaw === "string" ? JSON.parse(argsRaw) : argsRaw;
+    if (!argsRaw) return unavailableStakeholders("gateway");
+    let parsed: any;
+    try {
+      parsed = typeof argsRaw === "string" ? JSON.parse(argsRaw) : argsRaw;
+    } catch (error) {
+      console.error("AI response parse error", error);
+      return unavailableStakeholders("gateway");
+    }
 
     const validIds = new Set(AGENTS.map((a) => a.id));
     const reactions: AgentReaction[] = (parsed.reactions ?? [])
