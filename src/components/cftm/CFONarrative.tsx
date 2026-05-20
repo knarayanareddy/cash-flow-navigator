@@ -14,6 +14,7 @@ interface Props {
   levers: Levers;
   data: MonthData[];
   mc?: MonteCarloResult | null;
+  onResult?: (r: NarrativeResult) => void;
 }
 
 function hashLevers(l: Levers) {
