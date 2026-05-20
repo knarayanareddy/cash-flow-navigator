@@ -375,6 +375,7 @@ export function StakeholderPanel({
   data,
   mc,
   narrative,
+  onResult,
 }: Props) {
   const generate = useServerFn(simulateStakeholders);
   const [result, setResult] = useState<StakeholderResult | null>(null);
