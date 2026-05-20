@@ -78,11 +78,15 @@ export function TopNav({
               Scenarios
             </Button>
           )}
+          {!user && onToggleDemo && (
+            <DemoModeToggle enabled={demoMode} onToggle={onToggleDemo} />
+          )}
           <Button
             onClick={onSave}
             size="sm"
             disabled={saveState === "saving"}
-            className="gap-1.5 min-w-[120px] justify-center"
+            title="Save (⌘S)"
+            className={`gap-1.5 min-w-[120px] justify-center ${saveReminder ? "animate-save-pulse" : ""}`}
           >
             {saveState === "saving" ? (
               <>
