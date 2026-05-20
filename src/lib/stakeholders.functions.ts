@@ -267,7 +267,7 @@ export const simulateStakeholders = createServerFn({ method: "POST" })
         topConcern: String(r.topConcern ?? ""),
         suggestedAction: String(r.suggestedAction ?? ""),
         agreesWith: Array.isArray(r.agreesWith)
-          ? r.agreesWith.filter((id: string) => validIds.has(id))
+          ? (r.agreesWith.filter((id: string) => validIds.has(id as AgentId)) as AgentId[])
           : [],
       }));
 
