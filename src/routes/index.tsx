@@ -399,17 +399,27 @@ function Index() {
             </div>
           </motion.div>
         )}
+        {!online && <OfflineBanner key="offline" />}
+        {demoMode && !user && (
+          <DemoModeBanner
+            key="demo"
+            currentLabel={currentDemoLabel}
+            onTakeControl={() => setDemoMode(false)}
+          />
+        )}
       </AnimatePresence>
 
       <main className="mx-auto max-w-[1400px] px-6 pb-16 pt-24">
         {comparing ? (
-          <ComparisonView
-            scenarioA={levers}
-            scenarioB={leversB}
-            onChangeB={setLeversB}
-            onExit={() => setComparing(false)}
-            onSaveComparison={saveComparison}
-          />
+          <Suspense fallback={<div className="flex h-96 items-center justify-center text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+            <ComparisonView
+              scenarioA={levers}
+              scenarioB={leversB}
+              onChangeB={setLeversB}
+              onExit={() => setComparing(false)}
+              onSaveComparison={saveComparison}
+            />
+          </Suspense>
         ) : (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="lg:col-span-1">
@@ -418,7 +428,9 @@ function Index() {
               </div>
             </div>
             <div className="space-y-6 lg:col-span-2">
-              <CashFlowChart data={data} mc={mc} mcRunning={mcRunning} />
+              <div className={allDefault ? "rounded-2xl ring-1 ring-emerald-400/30 shadow-[0_0_60px_-20px_rgba(52,211,153,0.35)] transition-shadow" : ""}>
+                <CashFlowChart data={data} mc={mc} mcRunning={mcRunning} />
+              </div>
               <CFONarrative
                 scenarioName={scenarioName}
                 levers={levers}
@@ -438,9 +450,14 @@ function Index() {
         )}
       </main>
 
-      {pdfData && <PDFReport ref={pdfRootRef} report={pdfData} />}
+      {pdfData && (
+        <Suspense fallback={null}>
+          <PDFReport ref={pdfRootRef} report={pdfData} />
+        </Suspense>
+      )}
 
       <StatusBar lastCalculatedAt={lastCalculatedAt} scenariosSaved={scenariosSaved} />
+      <BuiltWithBadge />
 
       <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
       <ScenariosDrawer
@@ -452,3 +469,4 @@ function Index() {
     </div>
   );
 }
+
