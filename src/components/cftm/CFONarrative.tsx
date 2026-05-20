@@ -72,6 +72,25 @@ const LOADING_PHRASES = [
   "Writing CFO brief…",
 ];
 
+const UNAVAILABLE_COPY: Record<NonNullable<NarrativeResult["unavailableReason"]>, { title: string; body: string }> = {
+  credits: {
+    title: "AI credits exhausted",
+    body: "Forecasts, Monte Carlo bands, and charts still work. Add credits in workspace settings to regenerate the CFO AI Brief.",
+  },
+  rate_limit: {
+    title: "AI analysis is rate limited",
+    body: "Wait a moment, then regenerate the CFO AI Brief.",
+  },
+  configuration: {
+    title: "AI analysis is not configured",
+    body: "The forecast remains available, but the AI gateway needs configuration before briefs can run.",
+  },
+  gateway: {
+    title: "AI analysis is temporarily unavailable",
+    body: "The forecast remains available. Try regenerating the brief shortly.",
+  },
+};
+
 function Shimmer({ className = "" }: { className?: string }) {
   return (
     <div
@@ -185,10 +204,10 @@ export function CFONarrative({ scenarioName, levers, data, mc, onResult }: Props
               : undefined,
           },
         });
-        cacheRef.current.set(key, r);
+        if (!r.unavailableReason) cacheRef.current.set(key, r);
         setResult(r);
         setGeneratedAt(Date.now());
-        onResult?.(r);
+        if (!r.unavailableReason) onResult?.(r);
       } catch (e) {
         console.error(e);
         setError("AI analysis unavailable. Please check your connection.");
@@ -256,7 +275,7 @@ export function CFONarrative({ scenarioName, levers, data, mc, onResult }: Props
         </div>
 
         <AnimatePresence mode="wait">
-          {result && !loading && (
+          {result && !loading && !result.unavailableReason && (
             <motion.div
               key={urgency}
               initial={{ opacity: 0, y: -4 }}
@@ -284,7 +303,22 @@ export function CFONarrative({ scenarioName, levers, data, mc, onResult }: Props
           </div>
         )}
 
-        {!loading && !error && result && (
+        {!loading && result?.unavailableReason && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center">
+            <AlertTriangle className="mx-auto mb-2 h-5 w-5 text-amber-300" />
+            <p className="text-sm font-semibold text-amber-100">
+              {UNAVAILABLE_COPY[result.unavailableReason].title}
+            </p>
+            <p className="mx-auto mt-1 max-w-xl text-xs leading-relaxed text-amber-100/80">
+              {UNAVAILABLE_COPY[result.unavailableReason].body}
+            </p>
+            <Button size="sm" variant="secondary" className="mt-3" onClick={() => run(true)}>
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {!loading && !error && result && !result.unavailableReason && (
           <>
             <div className="space-y-3 text-center">
               <motion.h2
