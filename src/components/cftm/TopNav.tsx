@@ -1,4 +1,4 @@
-import { Clock, Download, Save, Loader2, Check, FolderOpen } from "lucide-react";
+import { Clock, Download, Save, Loader2, Check, FolderOpen, Columns, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
@@ -13,6 +13,9 @@ interface Props {
   onSave: () => void;
   onExport: () => void;
   onOpenScenarios: () => void;
+  onToggleCompare: () => void;
+  comparing: boolean;
+  exporting?: boolean;
   user: User | null;
   saveState: SaveState;
 }
