@@ -26,6 +26,9 @@ export function TopNav({
   onSave,
   onExport,
   onOpenScenarios,
+  onToggleCompare,
+  comparing,
+  exporting = false,
   user,
   saveState,
 }: Props) {
