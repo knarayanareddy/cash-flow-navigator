@@ -1,4 +1,4 @@
-import { Clock, Download, Save, Loader2, Check, FolderOpen } from "lucide-react";
+import { Clock, Download, Save, Loader2, Check, FolderOpen, Columns, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
@@ -13,6 +13,9 @@ interface Props {
   onSave: () => void;
   onExport: () => void;
   onOpenScenarios: () => void;
+  onToggleCompare: () => void;
+  comparing: boolean;
+  exporting?: boolean;
   user: User | null;
   saveState: SaveState;
 }
@@ -23,6 +26,9 @@ export function TopNav({
   onSave,
   onExport,
   onOpenScenarios,
+  onToggleCompare,
+  comparing,
+  exporting = false,
   user,
   saveState,
 }: Props) {
@@ -88,13 +94,25 @@ export function TopNav({
             )}
           </Button>
           <Button
+            onClick={onToggleCompare}
+            size="sm"
+            variant={comparing ? "default" : "outline"}
+            className={`hidden gap-1.5 md:inline-flex ${
+              comparing ? "" : "border-white/15 bg-transparent hover:bg-white/5"
+            }`}
+          >
+            {comparing ? <X className="h-4 w-4" /> : <Columns className="h-4 w-4" />}
+            {comparing ? "Exit Compare" : "Compare"}
+          </Button>
+          <Button
             onClick={onExport}
+            disabled={exporting}
             size="sm"
             variant="outline"
             className="hidden gap-1.5 border-white/15 bg-transparent hover:bg-white/5 md:inline-flex"
           >
-            <Download className="h-4 w-4" />
-            Export PDF
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {exporting ? "Exporting…" : "Export PDF"}
           </Button>
           {user ? (
             <UserMenu user={user} onOpenScenarios={onOpenScenarios} />

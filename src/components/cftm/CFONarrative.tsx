@@ -14,6 +14,7 @@ interface Props {
   levers: Levers;
   data: MonthData[];
   mc?: MonteCarloResult | null;
+  onResult?: (r: NarrativeResult) => void;
 }
 
 function hashLevers(l: Levers) {
@@ -130,7 +131,7 @@ function LoadingState() {
   );
 }
 
-export function CFONarrative({ scenarioName, levers, data, mc }: Props) {
+export function CFONarrative({ scenarioName, levers, data, mc, onResult }: Props) {
   const generate = useServerFn(generateCfoBrief);
   const [result, setResult] = useState<NarrativeResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -187,6 +188,7 @@ export function CFONarrative({ scenarioName, levers, data, mc }: Props) {
         cacheRef.current.set(key, r);
         setResult(r);
         setGeneratedAt(Date.now());
+        onResult?.(r);
       } catch (e) {
         console.error(e);
         setError("AI analysis unavailable. Please check your connection.");
@@ -195,7 +197,7 @@ export function CFONarrative({ scenarioName, levers, data, mc }: Props) {
         inFlightKey.current = null;
       }
     },
-    [generate, key, kpis, levers, data, scenarioName, mc],
+    [generate, key, kpis, levers, data, scenarioName, mc, onResult],
   );
 
   // Auto-generate on first load (1s delay), then debounce (2.5s) on lever changes

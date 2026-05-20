@@ -38,6 +38,7 @@ interface Props {
   data: MonthData[];
   mc?: MonteCarloResult | null;
   narrative?: { headline?: string; summary?: string; urgency?: string } | null;
+  onResult?: (r: StakeholderResult) => void;
 }
 
 function computeKpis(data: MonthData[]) {
@@ -374,6 +375,7 @@ export function StakeholderPanel({
   data,
   mc,
   narrative,
+  onResult,
 }: Props) {
   const generate = useServerFn(simulateStakeholders);
   const [result, setResult] = useState<StakeholderResult | null>(null);
@@ -422,6 +424,7 @@ export function StakeholderPanel({
         });
         cacheRef.current.set(key, r);
         setResult(r);
+        onResult?.(r);
       } catch (e) {
         console.error(e);
         setError("War room unavailable. Please check your connection.");
@@ -430,7 +433,7 @@ export function StakeholderPanel({
         inFlightKey.current = null;
       }
     },
-    [generate, key, kpis, levers, scenarioName, narrative, mc],
+    [generate, key, kpis, levers, scenarioName, narrative, mc, onResult],
   );
 
   useEffect(() => {
