@@ -17,6 +17,7 @@ import {
 } from "@/lib/cashflow";
 import { upsertScenario, type ScenarioRow } from "@/lib/scenarios";
 import { useAuth } from "@/hooks/useAuth";
+import { useMonteCarlo } from "@/hooks/useMonteCarlo";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,6 +42,7 @@ function Index() {
   const [staleBanner, setStaleBanner] = useState(false);
 
   const data = useMemo(() => calculateCashFlow(BASE_DATA, levers), [levers]);
+  const { result: mc, running: mcRunning } = useMonteCarlo(BASE_DATA, levers, 1000);
 
   useEffect(() => {
     setLastCalculatedAt(Date.now());
@@ -223,8 +225,8 @@ function Index() {
             </div>
           </div>
           <div className="space-y-6 lg:col-span-2">
-            <CashFlowChart data={data} />
-            <CFONarrative scenarioName={scenarioName} levers={levers} data={data} />
+            <CashFlowChart data={data} mc={mc} mcRunning={mcRunning} />
+            <CFONarrative scenarioName={scenarioName} levers={levers} data={data} mc={mc} />
             <StakeholderPanel />
           </div>
         </div>

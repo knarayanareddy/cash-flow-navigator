@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { generateCfoBrief, type NarrativeResult } from "@/lib/narrative.functions";
 import type { MonthData, Levers } from "@/lib/cashflow";
+import type { MonteCarloResult } from "@/lib/monteCarlo";
 
 interface Props {
   scenarioName: string;
   levers: Levers;
   data: MonthData[];
+  mc?: MonteCarloResult | null;
 }
 
 function hashLevers(l: Levers) {
@@ -128,7 +130,7 @@ function LoadingState() {
   );
 }
 
-export function CFONarrative({ scenarioName, levers, data }: Props) {
+export function CFONarrative({ scenarioName, levers, data, mc }: Props) {
   const generate = useServerFn(generateCfoBrief);
   const [result, setResult] = useState<NarrativeResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -166,6 +168,20 @@ export function CFONarrative({ scenarioName, levers, data }: Props) {
             levers: levers as unknown as Record<string, unknown>,
             results: data,
             kpis,
+            monteCarlo: mc
+              ? {
+                  iterations: mc.iterations,
+                  worstCaseEndYear: mc.summary.worstCaseEndYear,
+                  bestCaseEndYear: mc.summary.bestCaseEndYear,
+                  medianEndYear: mc.summary.medianEndYear,
+                  maxProbabilityNegative: mc.summary.maxProbabilityNegative,
+                  dangerMonths: mc.summary.dangerMonths,
+                  perMonthNegative: mc.bands.map((b) => ({
+                    month: b.month,
+                    probability: b.probabilityNegative,
+                  })),
+                }
+              : undefined,
           },
         });
         cacheRef.current.set(key, r);
@@ -179,7 +195,7 @@ export function CFONarrative({ scenarioName, levers, data }: Props) {
         inFlightKey.current = null;
       }
     },
-    [generate, key, kpis, levers, data, scenarioName],
+    [generate, key, kpis, levers, data, scenarioName, mc],
   );
 
   // Auto-generate on first load (1s delay), then debounce (2.5s) on lever changes

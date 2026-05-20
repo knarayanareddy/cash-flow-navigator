@@ -16,6 +16,17 @@ const InputSchema = z.object({
   levers: z.record(z.string(), z.any()),
   results: z.array(z.any()).max(60),
   kpis: KpisSchema,
+  monteCarlo: z
+    .object({
+      iterations: z.number().optional(),
+      worstCaseEndYear: z.number(),
+      bestCaseEndYear: z.number(),
+      medianEndYear: z.number(),
+      maxProbabilityNegative: z.number(),
+      dangerMonths: z.array(z.string()),
+      perMonthNegative: z.array(z.object({ month: z.string(), probability: z.number() })).optional(),
+    })
+    .optional(),
 });
 
 export interface NarrativeResult {
@@ -59,10 +70,29 @@ function fmt(n: number) {
 }
 
 function buildUserPrompt(d: z.infer<typeof InputSchema>) {
-  const { scenarioName, levers, kpis, results } = d;
+  const { scenarioName, levers, kpis, results, monteCarlo } = d;
   const trajectory = results
     .map((r: any) => `${r.month}: cum ${fmt(r.cumulativeCash)} (net ${fmt(r.netCash)})`)
     .join("\n");
+
+  const mcBlock = monteCarlo
+    ? `
+
+Monte Carlo simulation (${monteCarlo.iterations ?? 1000} iterations):
+- Median end-of-year cash (p50): ${fmt(monteCarlo.medianEndYear)}
+- p10 (worst 10%): ${fmt(monteCarlo.worstCaseEndYear)}
+- p90 (best 10%): ${fmt(monteCarlo.bestCaseEndYear)}
+- Max probability of negative cash in any month: ${(monteCarlo.maxProbabilityNegative * 100).toFixed(0)}%
+- Months with >20% probability of negative cash: ${monteCarlo.dangerMonths.join(", ") || "none"}
+${
+  monteCarlo.perMonthNegative
+    ? `- Per-month probability of negative cash:\n${monteCarlo.perMonthNegative
+        .map((p) => `  • ${p.month}: ${(p.probability * 100).toFixed(0)}%`)
+        .join("\n")}`
+    : ""
+}`
+    : "";
+
   return `Scenario: "${scenarioName}"
 
 Lever settings:
@@ -77,11 +107,11 @@ ${JSON.stringify(levers, null, 2)}
 - Months with negative cash: ${kpis.monthsNegative}
 
 Monthly trajectory:
-${trajectory}
+${trajectory}${mcBlock}
 
-Produce a board-ready CFO brief by calling the submit_brief tool. Be specific — reference these exact numbers. Urgency should be:
-- critical if cash goes negative or runway < 3 months
-- high if any month within 20% of zero or 4+ months show drawdown
+Produce a board-ready CFO brief by calling the submit_brief tool. Be specific — reference these exact numbers, including Monte Carlo probabilities (e.g. "34% chance of cash going negative in October") and the median + p10–p90 range when summarising the outlook. Urgency should be:
+- critical if cash goes negative or runway < 3 months or any month >50% probability of negative cash
+- high if any month within 20% of zero, 4+ months show drawdown, or any month >20% probability of negative cash
 - medium if net flow negative but cash stays comfortable
 - low if trajectory is constructive
 Set cashRunwayMonths to null if cash never goes negative in the trajectory.`;
