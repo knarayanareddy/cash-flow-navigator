@@ -4,7 +4,7 @@ import { toast, Toaster } from "sonner";
 import { TopNav, type SaveState } from "@/components/cftm/TopNav";
 import { ScenarioControls } from "@/components/cftm/ScenarioControls";
 import { CashFlowChart } from "@/components/cftm/CashFlowChart";
-import { NarrativePanel } from "@/components/cftm/NarrativePanel";
+import { CFONarrative } from "@/components/cftm/CFONarrative";
 import { StakeholderPanel } from "@/components/cftm/StakeholderPanel";
 import { StatusBar } from "@/components/cftm/StatusBar";
 import { AuthModal } from "@/components/cftm/AuthModal";
@@ -13,7 +13,6 @@ import {
   BASE_DATA,
   DEFAULT_LEVERS,
   calculateCashFlow,
-  generateNarrative,
   type Levers,
 } from "@/lib/cashflow";
 import { upsertScenario, type ScenarioRow } from "@/lib/scenarios";
@@ -42,7 +41,6 @@ function Index() {
   const [staleBanner, setStaleBanner] = useState(false);
 
   const data = useMemo(() => calculateCashFlow(BASE_DATA, levers), [levers]);
-  const narrative = useMemo(() => generateNarrative(data, levers), [data, levers]);
 
   useEffect(() => {
     setLastCalculatedAt(Date.now());
@@ -226,7 +224,7 @@ function Index() {
           </div>
           <div className="space-y-6 lg:col-span-2">
             <CashFlowChart data={data} />
-            <NarrativePanel narrative={narrative} />
+            <CFONarrative scenarioName={scenarioName} levers={levers} data={data} />
             <StakeholderPanel />
           </div>
         </div>
