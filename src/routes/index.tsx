@@ -309,6 +309,33 @@ function Index() {
     }
   }, [user, scenarioName, levers, leversB, data]);
 
+  // ---- Demo mode auto-cycle (guests only) ----
+  useDemoMode({
+    enabled: demoMode && !user,
+    onScriptedLevers: (l) => setLevers(l),
+  });
+  const currentDemoLabel = demoMode ? scenarioName || "Auto-cycling…" : "";
+
+  // ---- Keyboard shortcuts ----
+  useKeyboardShortcuts({
+    onSave: () => { void save(); },
+    onReset: () => {
+      setLevers(DEFAULT_LEVERS);
+      toast.success("Levers reset to defaults");
+    },
+    onExport: () => { void handleExport(); },
+    onEscape: () => {
+      setDrawerOpen(false);
+      setAuthOpen(false);
+      setStaleBanner(false);
+    },
+  });
+
+  const allDefault = useMemo(
+    () => JSON.stringify(levers) === JSON.stringify(DEFAULT_LEVERS),
+    [levers],
+  );
+
   return (
     <div className="dark min-h-screen bg-background text-foreground">
       <Toaster theme="dark" position="top-right" />
@@ -323,12 +350,17 @@ function Index() {
         exporting={exporting}
         user={user}
         saveState={saveState}
+        demoMode={demoMode}
+        onToggleDemo={() => setDemoMode((d) => !d)}
+        saveReminder={saveReminder}
       />
 
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-grid opacity-60" />
         <div className="absolute -top-40 left-1/3 h-[480px] w-[480px] rounded-full bg-primary/20 blur-[120px]" />
         <div className="absolute top-1/2 -right-40 h-[420px] w-[420px] rounded-full bg-fuchsia-500/10 blur-[120px]" />
       </div>
+
 
       <AnimatePresence>
         {staleBanner && (
