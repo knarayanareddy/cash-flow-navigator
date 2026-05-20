@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast, Toaster } from "sonner";
 import { TopNav, type SaveState } from "@/components/cftm/TopNav";
 import { ScenarioControls } from "@/components/cftm/ScenarioControls";
@@ -9,9 +9,9 @@ import { StakeholderPanel } from "@/components/cftm/StakeholderPanel";
 import { StatusBar } from "@/components/cftm/StatusBar";
 import { AuthModal } from "@/components/cftm/AuthModal";
 import { ScenariosDrawer } from "@/components/cftm/ScenariosDrawer";
-import { ComparisonView } from "@/components/cftm/ComparisonView";
-import { PDFReport, type PDFReportData } from "@/components/cftm/PDFReport";
-import { exportReportToPdf, buildFilename } from "@/lib/pdfExport";
+import { DemoModeBanner } from "@/components/cftm/DemoModeBanner";
+import { OfflineBanner } from "@/components/cftm/OfflineBanner";
+import { BuiltWithBadge } from "@/components/cftm/BuiltWithBadge";
 import {
   BASE_DATA,
   DEFAULT_LEVERS,
@@ -21,12 +21,24 @@ import {
 import { upsertScenario, type ScenarioRow } from "@/lib/scenarios";
 import { useAuth } from "@/hooks/useAuth";
 import { useMonteCarlo } from "@/hooks/useMonteCarlo";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useDemoMode } from "@/hooks/useDemoMode";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, X, Loader2 } from "lucide-react";
 import type { NarrativeResult } from "@/lib/narrative.functions";
 import type { StakeholderResult } from "@/lib/stakeholders.functions";
+
+// Lazy-load heavy/optional components
+const ComparisonView = lazy(() =>
+  import("@/components/cftm/ComparisonView").then((m) => ({ default: m.ComparisonView })),
+);
+const PDFReport = lazy(() =>
+  import("@/components/cftm/PDFReport").then((m) => ({ default: m.PDFReport })),
+);
+type PDFReportData = import("@/components/cftm/PDFReport").PDFReportData;
 
 export const Route = createFileRoute("/")({
   component: Index,
