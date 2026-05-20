@@ -14,13 +14,22 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { TrendingDown, TrendingUp, AlertTriangle } from "lucide-react";
+import {
+  Tooltip as UiTooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { TrendingDown, TrendingUp, AlertTriangle, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { AnimatedNumber } from "./AnimatedNumber";
 import type { MonthData } from "@/lib/cashflow";
+import type { MonteCarloResult } from "@/lib/monteCarlo";
 
 interface Props {
   data: MonthData[];
+  mc?: MonteCarloResult | null;
+  mcRunning?: boolean;
 }
 
 const COLORS = {
@@ -44,7 +53,7 @@ function fmtCurrency(v: number) {
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
-  const row: MonthData | undefined = payload[0]?.payload;
+  const row = payload[0]?.payload;
   if (!row) return null;
   return (
     <div
@@ -63,10 +72,20 @@ function CustomTooltip({ active, payload, label }: any) {
           color={row.netCash >= 0 ? COLORS.emerald : COLORS.red}
         />
         <div className="my-1 h-px bg-white/10" />
-        <Row label="Cumulative" value={fmtCurrency(row.cumulativeCash)} color={COLORS.indigo} bold />
-        <div className="pt-1 text-[10px] text-muted-foreground">
-          Range: {fmtCurrency(row.worstCase)} – {fmtCurrency(row.bestCase)}
-        </div>
+        <Row label="Base case" value={fmtCurrency(row.cumulativeCash)} color="#FFFFFF" bold />
+        {typeof row.p50 === "number" && (
+          <>
+            <Row label="Median (p50)" value={fmtCurrency(row.p50)} color={COLORS.indigo} />
+            <div className="pt-1 text-[10px] text-muted-foreground">
+              80% range: {fmtCurrency(row.p10)} – {fmtCurrency(row.p90)}
+            </div>
+            {typeof row.probabilityNegative === "number" && row.probabilityNegative > 0 && (
+              <div className="text-[10px] text-red-300">
+                {(row.probabilityNegative * 100).toFixed(0)}% chance of negative cash
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -86,18 +105,52 @@ function Row({ label, value, color, bold }: { label: string; value: string; colo
   );
 }
 
-export function CashFlowChart({ data }: Props) {
+function heatColor(p: number) {
+  if (p <= 0) return "rgba(255,255,255,0.04)";
+  if (p < 0.1) {
+    const a = 0.15 + (p / 0.1) * 0.45;
+    return `rgba(250, 204, 21, ${a.toFixed(2)})`; // yellow
+  }
+  if (p < 0.25) {
+    const a = 0.4 + ((p - 0.1) / 0.15) * 0.45;
+    return `rgba(249, 115, 22, ${a.toFixed(2)})`; // orange
+  }
+  if (p < 0.5) {
+    const a = 0.55 + ((p - 0.25) / 0.25) * 0.35;
+    return `rgba(239, 68, 68, ${a.toFixed(2)})`; // red
+  }
+  return "rgba(239, 68, 68, 0.95)";
+}
+
+export function CashFlowChart({ data, mc, mcRunning }: Props) {
   const [showBars, setShowBars] = useState(true);
   const [showBand, setShowBand] = useState(true);
   const [showRef, setShowRef] = useState(true);
 
+  // Merge MC bands into the chart rows (band ranges as [low, high] tuples for Recharts Area)
+  const chartData = useMemo(() => {
+    const bandsByMonth = new Map(mc?.bands.map((b) => [b.month, b]));
+    return data.map((d) => {
+      const b = bandsByMonth.get(d.month);
+      return {
+        ...d,
+        p10: b?.p10,
+        p25: b?.p25,
+        p50: b?.p50,
+        p75: b?.p75,
+        p90: b?.p90,
+        probabilityNegative: b?.probabilityNegative ?? 0,
+        outerBand: b ? [b.p10, b.p90] : undefined,
+        innerBand: b ? [b.p25, b.p75] : undefined,
+      };
+    });
+  }, [data, mc]);
+
   const kpis = useMemo(() => {
     const eoy = data[data.length - 1].cumulativeCash;
-    const startCash = data[0].cumulativeCash;
-    const net = eoy - startCash + data[0].netCash; // total movement vs opening
     const lowest = data.reduce((m, d) => (d.cumulativeCash < m.cumulativeCash ? d : m), data[0]);
     const netSum = data.reduce((s, d) => s + d.netCash, 0);
-    return { eoy, lowest, netSum, net };
+    return { eoy, lowest, netSum };
   }, [data]);
 
   const dangerMonths = data.filter((d) => d.cumulativeCash < 0);
@@ -111,9 +164,20 @@ export function CashFlowChart({ data }: Props) {
               Projected Cash Position — 12 Month View
             </CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              Inflow vs outflow with cumulative trajectory and Monte Carlo envelope
+              Base case plus Monte Carlo confidence funnel (1,000 simulations)
             </p>
           </div>
+          {mcRunning && (
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+              Running 1,000 simulations…
+            </div>
+          )}
+          {!mcRunning && mc && (
+            <div className="text-[10px] text-muted-foreground tabular-nums">
+              {mc.iterations.toLocaleString()} sims · {mc.durationMs}ms
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
@@ -141,15 +205,11 @@ export function CashFlowChart({ data }: Props) {
       <CardContent className="p-4 pt-2">
         <div className="h-[360px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 16, right: 24, left: 0, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 16, right: 24, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="cumulativeFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={COLORS.indigo} stopOpacity={0.4} />
                   <stop offset="100%" stopColor={COLORS.indigo} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="bandFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLORS.indigo} stopOpacity={0.15} />
-                  <stop offset="100%" stopColor={COLORS.indigo} stopOpacity={0.15} />
                 </linearGradient>
               </defs>
 
@@ -187,15 +247,16 @@ export function CashFlowChart({ data }: Props) {
                 />
               ))}
 
-              {/* 1. Confidence Band (bestCase area on top of worstCase area trick) */}
-              {showBand && (
+              {/* Monte Carlo funnel: outer p10–p90 then inner p25–p75 */}
+              {showBand && mc && (
                 <>
                   <Area
                     type="monotone"
-                    dataKey="bestCase"
-                    name="Confidence Range"
+                    dataKey="outerBand"
+                    name="p10–p90 range"
                     stroke="none"
-                    fill="url(#bandFill)"
+                    fill={COLORS.indigo}
+                    fillOpacity={0.08}
                     isAnimationActive
                     animationDuration={600}
                     activeDot={false}
@@ -203,18 +264,31 @@ export function CashFlowChart({ data }: Props) {
                   />
                   <Area
                     type="monotone"
-                    dataKey="worstCase"
+                    dataKey="innerBand"
+                    name="p25–p75 range"
                     stroke="none"
                     fill={COLORS.indigo}
-                    fillOpacity={0}
-                    isAnimationActive={false}
+                    fillOpacity={0.2}
+                    isAnimationActive
+                    animationDuration={600}
                     activeDot={false}
                     legendType="none"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="p50"
+                    name="Median (p50)"
+                    stroke={COLORS.indigo}
+                    strokeWidth={1.5}
+                    strokeDasharray="5 4"
+                    dot={false}
+                    isAnimationActive
+                    animationDuration={600}
                   />
                 </>
               )}
 
-              {/* 4 & 5. Inflow / Outflow bars */}
+              {/* Inflow / Outflow bars */}
               {showBars && (
                 <>
                   <Bar
@@ -240,47 +314,21 @@ export function CashFlowChart({ data }: Props) {
                 </>
               )}
 
-              {/* 2. Worst case dashed line */}
-              <Line
-                type="monotone"
-                dataKey="worstCase"
-                name="Worst Case"
-                stroke={COLORS.red}
-                strokeWidth={1.5}
-                strokeDasharray="4 4"
-                dot={false}
-                isAnimationActive
-                animationDuration={600}
-              />
-
-              {/* 3. Best case dashed line */}
-              <Line
-                type="monotone"
-                dataKey="bestCase"
-                name="Best Case"
-                stroke={COLORS.emerald}
-                strokeWidth={1.5}
-                strokeDasharray="4 4"
-                dot={false}
-                isAnimationActive
-                animationDuration={600}
-              />
-
-              {/* 6. Hero cumulative line with gradient fill */}
+              {/* Deterministic base case (white) on top */}
               <Area
                 type="monotone"
                 dataKey="cumulativeCash"
-                name="Cumulative Cash"
-                stroke={COLORS.indigo}
-                strokeWidth={3}
+                name="Base case"
+                stroke="#FFFFFF"
+                strokeWidth={2.5}
                 fill="url(#cumulativeFill)"
-                dot={{ r: 4, fill: COLORS.indigo, stroke: "#0A0F1E", strokeWidth: 2 }}
-                activeDot={{ r: 6, fill: COLORS.indigo, stroke: "#fff", strokeWidth: 2 }}
+                dot={{ r: 3.5, fill: "#FFFFFF", stroke: "#0A0F1E", strokeWidth: 2 }}
+                activeDot={{ r: 6, fill: "#FFFFFF", stroke: COLORS.indigo, strokeWidth: 2 }}
                 isAnimationActive
                 animationDuration={600}
               />
 
-              {/* 7. Break-even reference */}
+              {/* Break-even reference */}
               {showRef && (
                 <ReferenceLine
                   y={0}
@@ -298,13 +346,67 @@ export function CashFlowChart({ data }: Props) {
           </ResponsiveContainer>
         </div>
 
+        {/* Probability heat row */}
+        <div className="mt-4 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Probability of Negative Cash Position
+            </h4>
+            {mc && mc.summary.maxProbabilityNegative > 0 && (
+              <span className="text-[10px] text-muted-foreground tabular-nums">
+                Peak: {(mc.summary.maxProbabilityNegative * 100).toFixed(0)}%
+              </span>
+            )}
+          </div>
+          <TooltipProvider delayDuration={100}>
+            <div className="grid grid-cols-12 gap-1">
+              {chartData.map((d) => {
+                const p = d.probabilityNegative ?? 0;
+                return (
+                  <UiTooltip key={d.month}>
+                    <TooltipTrigger asChild>
+                      <motion.div
+                        animate={{ backgroundColor: heatColor(p) }}
+                        transition={{ duration: 0.4 }}
+                        className="h-6 cursor-default rounded-sm border border-white/5"
+                      >
+                        <span className="sr-only">
+                          {d.month}: {(p * 100).toFixed(0)}% chance of negative cash
+                        </span>
+                      </motion.div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      In {d.month}, there is{" "}
+                      <span className="font-mono font-bold">{(p * 100).toFixed(0)}%</span> chance of
+                      negative cash
+                    </TooltipContent>
+                  </UiTooltip>
+                );
+              })}
+            </div>
+          </TooltipProvider>
+          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+            <span>{chartData[0]?.month.split(" ")[0]}</span>
+            <div className="flex items-center gap-1.5">
+              <span>Risk:</span>
+              <span className="h-2 w-3 rounded-sm" style={{ background: heatColor(0.05) }} />
+              <span className="h-2 w-3 rounded-sm" style={{ background: heatColor(0.18) }} />
+              <span className="h-2 w-3 rounded-sm" style={{ background: heatColor(0.4) }} />
+              <span className="h-2 w-3 rounded-sm" style={{ background: heatColor(0.7) }} />
+            </div>
+            <span>{chartData[chartData.length - 1]?.month.split(" ")[0]}</span>
+          </div>
+        </div>
+
         {/* Footer legend + toggles */}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/5 pt-3">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
-            <Swatch color={COLORS.indigo}>Cumulative</Swatch>
-            <Swatch color={COLORS.emerald}>Inflow / Best</Swatch>
-            <Swatch color={COLORS.red}>Outflow / Worst</Swatch>
-            <Swatch color="rgba(99,102,241,0.4)">Confidence band</Swatch>
+            <Swatch color="#FFFFFF">Base case</Swatch>
+            <Swatch color={COLORS.indigo}>Median (p50)</Swatch>
+            <Swatch color="rgba(99,102,241,0.4)">p25–p75</Swatch>
+            <Swatch color="rgba(99,102,241,0.15)">p10–p90</Swatch>
+            <Swatch color={COLORS.emerald}>Inflow</Swatch>
+            <Swatch color={COLORS.red}>Outflow</Swatch>
           </div>
           <div className="flex items-center gap-3 text-[11px]">
             <Toggle label="Bars" checked={showBars} onChange={setShowBars} />
