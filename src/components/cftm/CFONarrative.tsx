@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { generateCfoBrief, type NarrativeResult } from "@/lib/narrative.functions";
 import type { MonthData, Levers } from "@/lib/cashflow";
+import type { MonteCarloResult } from "@/lib/monteCarlo";
 
 interface Props {
   scenarioName: string;
   levers: Levers;
   data: MonthData[];
+  mc?: MonteCarloResult | null;
 }
 
 function hashLevers(l: Levers) {
@@ -128,7 +130,7 @@ function LoadingState() {
   );
 }
 
-export function CFONarrative({ scenarioName, levers, data }: Props) {
+export function CFONarrative({ scenarioName, levers, data, mc }: Props) {
   const generate = useServerFn(generateCfoBrief);
   const [result, setResult] = useState<NarrativeResult | null>(null);
   const [loading, setLoading] = useState(false);
