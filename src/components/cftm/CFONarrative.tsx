@@ -168,6 +168,20 @@ export function CFONarrative({ scenarioName, levers, data, mc }: Props) {
             levers: levers as unknown as Record<string, unknown>,
             results: data,
             kpis,
+            monteCarlo: mc
+              ? {
+                  iterations: mc.iterations,
+                  worstCaseEndYear: mc.summary.worstCaseEndYear,
+                  bestCaseEndYear: mc.summary.bestCaseEndYear,
+                  medianEndYear: mc.summary.medianEndYear,
+                  maxProbabilityNegative: mc.summary.maxProbabilityNegative,
+                  dangerMonths: mc.summary.dangerMonths,
+                  perMonthNegative: mc.bands.map((b) => ({
+                    month: b.month,
+                    probability: b.probabilityNegative,
+                  })),
+                }
+              : undefined,
           },
         });
         cacheRef.current.set(key, r);
@@ -181,7 +195,7 @@ export function CFONarrative({ scenarioName, levers, data, mc }: Props) {
         inFlightKey.current = null;
       }
     },
-    [generate, key, kpis, levers, data, scenarioName],
+    [generate, key, kpis, levers, data, scenarioName, mc],
   );
 
   // Auto-generate on first load (1s delay), then debounce (2.5s) on lever changes
