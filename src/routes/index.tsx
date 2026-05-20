@@ -7,7 +7,13 @@ import { CashFlowChart } from "@/components/cftm/CashFlowChart";
 import { NarrativePanel } from "@/components/cftm/NarrativePanel";
 import { StakeholderPanel } from "@/components/cftm/StakeholderPanel";
 import { StatusBar } from "@/components/cftm/StatusBar";
-import { DEFAULT_LEVERS, generateNarrative, generateScenario, type Levers } from "@/lib/mockData";
+import {
+  BASE_DATA,
+  DEFAULT_LEVERS,
+  calculateCashFlow,
+  generateNarrative,
+  type Levers,
+} from "@/lib/cashflow";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -19,7 +25,7 @@ function Index() {
   const [lastCalculatedAt, setLastCalculatedAt] = useState(Date.now());
   const [scenariosSaved, setScenariosSaved] = useState(0);
 
-  const data = useMemo(() => generateScenario(levers), [levers]);
+  const data = useMemo(() => calculateCashFlow(BASE_DATA, levers), [levers]);
   const narrative = useMemo(() => generateNarrative(data, levers), [data, levers]);
 
   useEffect(() => {
@@ -39,7 +45,6 @@ function Index() {
         onExport={() => toast("PDF export queued", { description: "Generating boardroom-ready report…" })}
       />
 
-      {/* Ambient glow */}
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 left-1/3 h-[480px] w-[480px] rounded-full bg-primary/20 blur-[120px]" />
         <div className="absolute top-1/2 -right-40 h-[420px] w-[420px] rounded-full bg-fuchsia-500/10 blur-[120px]" />
