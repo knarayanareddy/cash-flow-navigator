@@ -131,7 +131,7 @@ function LoadingState() {
   );
 }
 
-export function CFONarrative({ scenarioName, levers, data, mc }: Props) {
+export function CFONarrative({ scenarioName, levers, data, mc, onResult }: Props) {
   const generate = useServerFn(generateCfoBrief);
   const [result, setResult] = useState<NarrativeResult | null>(null);
   const [loading, setLoading] = useState(false);
