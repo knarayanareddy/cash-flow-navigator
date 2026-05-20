@@ -433,7 +433,7 @@ export function StakeholderPanel({
         inFlightKey.current = null;
       }
     },
-    [generate, key, kpis, levers, scenarioName, narrative, mc],
+    [generate, key, kpis, levers, scenarioName, narrative, mc, onResult],
   );
 
   useEffect(() => {
