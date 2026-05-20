@@ -1,16 +1,31 @@
-import { Clock, Download, Save } from "lucide-react";
+import { Clock, Download, Save, Loader2, Check, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
+import type { User } from "@supabase/supabase-js";
+import { UserMenu } from "./UserMenu";
+
+export type SaveState = "idle" | "saving" | "saved";
 
 interface Props {
   scenarioName: string;
   onScenarioNameChange: (v: string) => void;
   onSave: () => void;
   onExport: () => void;
+  onOpenScenarios: () => void;
+  user: User | null;
+  saveState: SaveState;
 }
 
-export function TopNav({ scenarioName, onScenarioNameChange, onSave, onExport }: Props) {
+export function TopNav({
+  scenarioName,
+  onScenarioNameChange,
+  onSave,
+  onExport,
+  onOpenScenarios,
+  user,
+  saveState,
+}: Props) {
   return (
     <motion.header
       initial={{ y: -20, opacity: 0 }}
@@ -23,12 +38,12 @@ export function TopNav({ scenarioName, onScenarioNameChange, onSave, onExport }:
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 ring-1 ring-primary/30">
             <Clock className="h-5 w-5 text-primary" />
           </div>
-          <span className="font-semibold tracking-tight text-foreground whitespace-nowrap">
+          <span className="hidden whitespace-nowrap font-semibold tracking-tight text-foreground sm:inline">
             Cash Flow Time Machine
           </span>
         </div>
 
-        <div className="flex-1 max-w-md mx-auto">
+        <div className="mx-auto max-w-md flex-1">
           <Input
             value={scenarioName}
             onChange={(e) => onScenarioNameChange(e.target.value)}
@@ -38,17 +53,56 @@ export function TopNav({ scenarioName, onScenarioNameChange, onSave, onExport }:
         </div>
 
         <div className="flex items-center gap-2">
-          <Button onClick={onSave} size="sm" className="gap-1.5">
-            <Save className="h-4 w-4" />
-            Save Scenario
+          {user && (
+            <Button
+              onClick={onOpenScenarios}
+              size="sm"
+              variant="ghost"
+              className="hidden gap-1.5 text-muted-foreground hover:text-foreground sm:flex"
+            >
+              <FolderOpen className="h-4 w-4" />
+              Scenarios
+            </Button>
+          )}
+          <Button
+            onClick={onSave}
+            size="sm"
+            disabled={saveState === "saving"}
+            className="gap-1.5 min-w-[120px] justify-center"
+          >
+            {saveState === "saving" ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving…
+              </>
+            ) : saveState === "saved" ? (
+              <>
+                <Check className="h-4 w-4" />
+                Saved
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                Save Scenario
+              </>
+            )}
           </Button>
-          <Button onClick={onExport} size="sm" variant="outline" className="gap-1.5 border-white/15 bg-transparent hover:bg-white/5">
+          <Button
+            onClick={onExport}
+            size="sm"
+            variant="outline"
+            className="hidden gap-1.5 border-white/15 bg-transparent hover:bg-white/5 md:inline-flex"
+          >
             <Download className="h-4 w-4" />
             Export PDF
           </Button>
-          <div className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-fuchsia-500 text-xs font-semibold text-white ring-2 ring-background">
-            CF
-          </div>
+          {user ? (
+            <UserMenu user={user} onOpenScenarios={onOpenScenarios} />
+          ) : (
+            <div className="ml-1 hidden h-9 w-9 items-center justify-center rounded-full bg-white/5 text-xs font-semibold text-muted-foreground ring-1 ring-white/10 sm:flex">
+              ?
+            </div>
+          )}
         </div>
       </div>
     </motion.header>
