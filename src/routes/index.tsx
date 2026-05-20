@@ -227,7 +227,7 @@ function Index() {
           <div className="space-y-6 lg:col-span-2">
             <CashFlowChart data={data} mc={mc} mcRunning={mcRunning} />
             <CFONarrative scenarioName={scenarioName} levers={levers} data={data} mc={mc} />
-            <StakeholderPanel />
+            <StakeholderPanel scenarioName={scenarioName} levers={levers} data={data} mc={mc} />
           </div>
         </div>
       </main>
