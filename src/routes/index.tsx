@@ -9,6 +9,9 @@ import { StakeholderPanel } from "@/components/cftm/StakeholderPanel";
 import { StatusBar } from "@/components/cftm/StatusBar";
 import { AuthModal } from "@/components/cftm/AuthModal";
 import { ScenariosDrawer } from "@/components/cftm/ScenariosDrawer";
+import { ComparisonView } from "@/components/cftm/ComparisonView";
+import { PDFReport, type PDFReportData } from "@/components/cftm/PDFReport";
+import { exportReportToPdf, buildFilename } from "@/lib/pdfExport";
 import {
   BASE_DATA,
   DEFAULT_LEVERS,
@@ -21,7 +24,9 @@ import { useMonteCarlo } from "@/hooks/useMonteCarlo";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, X } from "lucide-react";
+import { RefreshCw, X, Loader2 } from "lucide-react";
+import type { NarrativeResult } from "@/lib/narrative.functions";
+import type { StakeholderResult } from "@/lib/stakeholders.functions";
 
 export const Route = createFileRoute("/")({
   component: Index,
