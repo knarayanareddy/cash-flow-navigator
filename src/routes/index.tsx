@@ -258,6 +258,7 @@ function Index() {
     await new Promise((r) => setTimeout(r, 250));
     try {
       if (!pdfRootRef.current) throw new Error("PDF template not ready");
+      const { exportReportToPdf, buildFilename } = await import("@/lib/pdfExport");
       await exportReportToPdf(pdfRootRef.current, buildFilename(scenarioName));
       toast.success("✅ Report downloaded!");
     } catch (e: any) {
