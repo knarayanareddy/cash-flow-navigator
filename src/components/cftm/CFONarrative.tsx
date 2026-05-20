@@ -197,7 +197,7 @@ export function CFONarrative({ scenarioName, levers, data, mc, onResult }: Props
         inFlightKey.current = null;
       }
     },
-    [generate, key, kpis, levers, data, scenarioName, mc],
+    [generate, key, kpis, levers, data, scenarioName, mc, onResult],
   );
 
   // Auto-generate on first load (1s delay), then debounce (2.5s) on lever changes
