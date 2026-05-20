@@ -188,6 +188,7 @@ export function CFONarrative({ scenarioName, levers, data, mc, onResult }: Props
         cacheRef.current.set(key, r);
         setResult(r);
         setGeneratedAt(Date.now());
+        onResult?.(r);
       } catch (e) {
         console.error(e);
         setError("AI analysis unavailable. Please check your connection.");
