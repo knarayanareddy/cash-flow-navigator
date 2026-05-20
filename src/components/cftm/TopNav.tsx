@@ -23,6 +23,8 @@ interface Props {
   saveReminder?: boolean;
 }
 
+import { DemoModeToggle } from "./DemoModeBanner";
+
 export function TopNav({
   scenarioName,
   onScenarioNameChange,
@@ -34,6 +36,9 @@ export function TopNav({
   exporting = false,
   user,
   saveState,
+  demoMode = false,
+  onToggleDemo,
+  saveReminder = false,
 }: Props) {
   return (
     <motion.header
