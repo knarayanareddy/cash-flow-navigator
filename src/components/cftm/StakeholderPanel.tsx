@@ -446,7 +446,17 @@ export function StakeholderPanel({
         if (!r.unavailableReason) onResult?.(r);
       } catch (e) {
         console.error(e);
-        setError("War room unavailable. Please check your connection.");
+        setResult({
+          reactions: [],
+          consensus: {
+            averageSentiment: 0,
+            agreements: [],
+            conflicts: [],
+            recommendation:
+              "Stakeholder simulation is temporarily unavailable. Try reconvening shortly.",
+          },
+          unavailableReason: "gateway",
+        });
       } finally {
         setLoading(false);
         inFlightKey.current = null;
