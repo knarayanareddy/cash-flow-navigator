@@ -210,7 +210,17 @@ export function CFONarrative({ scenarioName, levers, data, mc, onResult }: Props
         if (!r.unavailableReason) onResult?.(r);
       } catch (e) {
         console.error(e);
-        setError("AI analysis unavailable. Please check your connection.");
+        setResult({
+          headline: "AI analysis is temporarily unavailable",
+          summary:
+            "The forecast is still available. Regenerate the brief once the AI service is reachable.",
+          risks: [],
+          recommendations: [],
+          urgency: "medium",
+          cashRunwayMonths: null,
+          unavailableReason: "gateway",
+        });
+        setGeneratedAt(Date.now());
       } finally {
         setLoading(false);
         inFlightKey.current = null;
